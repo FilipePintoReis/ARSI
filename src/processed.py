@@ -1,3 +1,7 @@
+import os
+
+os.chdir('./src')
+
 f1 = open("Cit-HepTh-dates.csv", "w")
 f2 = open("Cit-HepTh.csv", "w")
 
@@ -18,7 +22,7 @@ with open("Cit-HepTh-dates.txt", "r") as file:
     for line in file:
         if not c == 0: 
             l = line.split()
-            if l[0][0] == '1' and l [0][1] == '1':
+            if l[0][0] == '1' and l [0][1] == '1' and not l[0][2:] in d:
                 d[l[0][2:]] = Paper(l[0][2:], l[1])
                 nl = l[0][2:] + "," + l[1] + '\n'
                 f1.write(nl)
