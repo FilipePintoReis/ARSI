@@ -23,6 +23,13 @@ with open("Cit-HepTh-dates.txt", "r") as file:
         if not c == 0: 
             l = line.split()
             if l[0][0] == '1' and l [0][1] == '1' and not l[0][2:] in d:
+                try:
+                    with open('./metadata/' + str(l[0][2:]) + '.abs', 'r') as file2:
+                        pass
+                except FileNotFoundError as err:
+                    continue
+
+
                 d[l[0][2:]] = Paper(l[0][2:], l[1])
                 nl = l[0][2:] + "," + l[1] + '\n'
                 f1.write(nl)
