@@ -1,15 +1,22 @@
 import snap
 import os
 import datetime
+from datetime import timedelta, date
 from nltk import ne_chunk, pos_tag, word_tokenize
 from nltk.tree import Tree
 from snap import TNEANet
-
-
+from math import log10
+from random import choice
 
 
 
 os.chdir('./src')
+
+def date_range(start_date, end_date):
+    d = []
+    for n in range(int ((end_date - start_date).days)):
+        d.append(start_date + timedelta(n))
+    return d
 
 def get_continuous_chunks(text):
     chunked = ne_chunk(pos_tag(word_tokenize(text)))
@@ -49,8 +56,6 @@ def process_metadata(filename):
 
     return st
 
-
-
 def getCathegories(filename):
     return get_continuous_chunks(process_metadata(filename))[:-1]
 
@@ -78,7 +83,6 @@ def populate(network):
                 network.AddEdge(srcNode, dstNode)
             else: 
                 c += 1
-
 
 def populate_with_metadata(network, dictionary):
     with open("Cit-HepTh-dates.csv", "r") as file:
@@ -123,6 +127,49 @@ def populate_with_metadata(network, dictionary):
             else: 
                 c += 1
 
+def populate_with_random_metadata(network, dictionary):
+    with open("Cit-HepTh-dates.csv", "r") as file:
+        c = 0
+        for line in file:
+            if not c == 0: 
+                l = line.split(',')
+                nodeId = int(l[0])
+                date = l[1]
+
+                try:
+                    file2 = './random-metadata/' + str(nodeId) + '.abs'
+                    with open(file2, 'r'):
+                        cathegories = getCathegories(file2)
+                        
+                except FileNotFoundError as err:
+                    continue
+
+                network.AddNode(nodeId)
+                network.AddStrAttrDatN(nodeId, date, 'Date')
+
+                for i, label in enumerate(cathegories):
+                    if label.strip() != '':
+                        network.AddStrAttrDatN(nodeId, label, 'label' + str(i))
+                        if not label in dictionary:
+                            dictionary[label] = 1
+                        else:
+                            dictionary[label] += 1
+                
+            else: 
+                c += 1
+            
+
+    with open("Cit-HepTh.csv", "r") as file:
+        c = 0
+        for line in file:
+            if not c == 0:
+                l = line.split(',')
+                srcNode = int(l[0])
+                dstNode = int(l[1])
+                network.AddEdge(srcNode, dstNode)
+            else: 
+                c += 1
+
 def showClusteringCoefficient(network):
     DegToCCfV = snap.TFltPrV()
     result = snap.GetClustCfAll(network, DegToCCfV)
@@ -131,7 +178,6 @@ def showClusteringCoefficient(network):
     print("average clustering coefficient", result[0])
     print("closed triads", result[1])
     print("open triads", result[2])
-
 
 def getEdgeBridges(network):
     UGraph = snap.ConvertGraph(snap.PUNGraph, network)
@@ -175,12 +221,16 @@ def getAnEdgeEmbeddedness(network, edge):
 
     return counter
 
-def showIfHomophilyExists():
+def showIfHomophilyExists(type_of):
     network = TNEANet.New()
 
     ocurrence_dict = {}
 
-    populate_with_metadata(network, ocurrence_dict)
+    if type_of == 'normal':
+        populate_with_metadata(network, ocurrence_dict)
+    else:
+        populate_with_random_metadata(network, ocurrence_dict)
+
     same_attribute = 0
     SNNE = 0 # número total de ocorrencias de tudo
     hypothetic_probability = 0
@@ -224,7 +274,6 @@ def showIfHomophilyExists():
     print("Hypothetic probability is:", hypothetic_probability)
     print("Actual distribution is:", AD)
 
-
 def networkWithinDate(network, start, end):
     start = datetime.datetime.strptime(start, '%Y-%m-%d').date()
     end = datetime.datetime.strptime(end, '%Y-%m-%d').date()
@@ -255,14 +304,105 @@ def networkWithinDate(network, start, end):
 
     return ret_net
            
+def getMean(network):
+    DegToCntV = snap.TIntPrV()
+    snap.GetInDegCnt(network, DegToCntV)
+
+    total_nodes = 0
+    total_degree = 0
+    for item in DegToCntV:
+        total_nodes += item.GetVal2()
+        total_degree += item.GetVal1()
+    
+    return total_degree/total_nodes
+
+def getStandartDeviation(network, mean):
+    DegToCntV = snap.TIntPrV()
+    snap.GetInDegCnt(network, DegToCntV)
+
+    total_nodes = 0
+    total_deviation = 0
+    for item in DegToCntV:
+        total_nodes += item.GetVal2()
+        total_deviation += abs(item.GetVal1() - mean)
+
+    return total_deviation/total_nodes
+
+def testPowerLaw(network, k, a, c):
+    """
+    k the number of citations
+    a the constant 
+    c the exponent
+    """
+    DegToCntV = snap.TIntPrV()
+    snap.GetInDegCnt(network, DegToCntV)
+
+    total_nodes = 0
+    actual = 0
+    for item in DegToCntV:
+        total_nodes += item.GetVal2()
+        if item.GetVal1() == k:
+            actual = item.GetVal2()
+    
+    return str("%.3f" % log10(actual/total_nodes)) + ' = ' + str("%.3f" % (log10(a) - c*log10(k)))
+
+def proveRichGetRicher(network):
+
+    network = TNEANet.New()
+    populate(network)
 
 
-network = TNEANet.New()
-populate(network)
-ret_net = networkWithinDate(network,'1999-12-01','1999-12-2')
+    start_date = date(1992, 3, 21)
+    end_date = date(1999, 12, 31)
+    dates = date_range(start_date, end_date)
+    s = set()
+    probability_sum = 0
+    counter = 0
 
-for n in ret_net.Nodes():
-    print(n.GetId(), ret_net.GetStrAttrDatN(n.GetId(), 'Date'))
+    for index, current_date in enumerate(dates[2:], start=1):
+        if index == 1:
+            last_network = networkWithinDate(network, dates[0].strftime("%Y-%m-%d"), current_date.strftime("%Y-%m-%d")) 
+
+            for element in last_network.Nodes():
+                    if not element.GetId() in s:
+                        s.add(element.GetId())
+
+        else:
+            curr_d = current_date.strftime("%Y-%m-%d")
+            new_network = networkWithinDate(network, dates[0].strftime("%Y-%m-%d"), curr_d)
+            new_papers_id = []
+
+            for node in new_network.Nodes():
+                if not node.GetId() in s:
+                    new_papers_id.append(node.GetId())
+
+            for new_paper_id in new_papers_id:
+                random_id = choice(tuple(s))
+                for edge in new_network.Edges():
+                    if edge.GetSrcNId() == new_paper_id:
+                        probability_sum += 1/(len(s))
+                        for e in new_network.Edges():
+                            if e.GetSrcNId() == random_id:
+                                if edge.GetSrcNId() == e.GetDstNId():
+                                    counter += 1
+
+
+            for element in new_network.Nodes():
+                    if not element.GetId() in s:
+                        s.add(element.GetId())
+            last_network = new_network
+
+    print("Probability sum", probability_sum, "Counter", counter)
+
+
+showIfHomophilyExists('normal')
+showIfHomophilyExists('weird')
+#showIfHomophilyExists('normal')
+
+#ret_net = networkWithinDate(network,'1999-12-01','1999-12-2')
+
+# for n in ret_net.Nodes():
+#     print(n.GetId(), ret_net.GetStrAttrDatN(n.GetId(), 'Date'))
 
 # network = TNEANet.New()
 # oc_dict = {}
