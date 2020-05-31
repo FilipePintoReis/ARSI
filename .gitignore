@@ -4,4 +4,4 @@
 *.tab
 *.abs
 */metadata
-*/test*
+*test.py
