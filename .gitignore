@@ -4,3 +4,4 @@
 *.tab
 *.abs
 */metadata
+*/test*
