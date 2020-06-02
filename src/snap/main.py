@@ -8,8 +8,6 @@ from snap import TNEANet
 from math import log10
 from random import choice
 
-
-
 os.chdir('./src')
 
 def date_range(start_date, end_date):
@@ -42,6 +40,21 @@ def get_continuous_chunks(text):
                 continuous_chunk.append(named_entity)
 
     return continuous_chunk
+
+def getANodesLabels(network, node_id):
+    l = []
+
+    try:
+        i = 0
+        var = network.GetStrAttrDatN(node_id, 'label' + str(i))
+        while var.strip() != '':
+            l.append(var)
+            i += 1
+            var = network.GetStrAttrDatN(node_id, 'label' + str(i)) 
+    except:
+        pass
+
+    return l
 
 def process_metadata(filename):
     st = ''
@@ -243,27 +256,9 @@ def showIfHomophilyExists(type_of):
 
     for e in network.Edges():
         n1, n2 = e.GetSrcNId(), e.GetDstNId()
-        l1, l2 = [], []
 
-        try:
-            i = 0
-            var = network.GetStrAttrDatN(n1, 'label' + str(i))
-            while var.strip() != '':
-                l1.append(var)
-                i += 1
-                var = network.GetStrAttrDatN(n1, 'label' + str(i)) 
-        except:
-            pass
-
-        try:
-            i = 0
-            var = network.GetStrAttrDatN(n2, 'label' + str(i))
-            while var.strip() != '':
-                l2.append(var)
-                i += 1
-                var = network.GetStrAttrDatN(n2, 'label' + str(i)) 
-        except:
-            pass
+        l1 = getANodesLabels(network, n1)
+        l2 = getANodesLabels(network, n2)
 
         for element in l1:
             if element in l2:
@@ -394,19 +389,109 @@ def proveRichGetRicher(network):
 
     print("Probability sum", probability_sum, "Counter", counter)
 
+def mostInfluencialLabel(network):
+    populate_with_metadata(network, {})
 
-showIfHomophilyExists('normal')
-showIfHomophilyExists('weird')
-#showIfHomophilyExists('normal')
+    label_influence_dict = {}
+    dict_of_labels = {}
+    for node in network.Nodes():
+        n1 = node.GetId()
+        l1 = getANodesLabels(network, n1)
 
-#ret_net = networkWithinDate(network,'1999-12-01','1999-12-2')
+        for label in l1:
+            if label in dict_of_labels:
+                dict_of_labels[label] += 1
+            else:
+                dict_of_labels[label] = 1
 
-# for n in ret_net.Nodes():
-#     print(n.GetId(), ret_net.GetStrAttrDatN(n.GetId(), 'Date'))
+        for edge in network.Edges():
+            if node.GetId() == edge.GetSrcNId():
+                n2 = edge.GetDstNId()
+                l2 = getANodesLabels(network, n2)
 
-# network = TNEANet.New()
-# oc_dict = {}
-# populate_with_metadata(network, oc_dict)
-# print(getAverageEmbeddednessOfEdges(network))
+                for label in l1:
+                    if label in l2:
+                        if label not in label_influence_dict:
+                            label_influence_dict[label] = 1
+                        else:
+                            label_influence_dict[label] += 1
 
-# snap.PrintInfo(network, "Python type PNEANet")
+    most_influential = []
+    most_used = []
+
+    for key, val in label_influence_dict.items():
+        most_influential.append((key, val))
+        most_influential.sort(reverse=True, key=lambda x: x[1])
+        if len(most_influential) > 5:
+            most_influential.pop(5)
+
+    for key, val in dict_of_labels.items():
+        most_used.append((key, val))
+        most_used.sort(reverse=True, key=lambda x: x[1])
+        if len(most_used) > 5:
+            most_used.pop(5)
+    
+    for i, element in enumerate(most_influential, start=1):
+        print('The {0} most influencial label is: {1}, with {2} occurrences'.format(i, element[0], element[1]))
+
+    for i, element in enumerate(most_used, start=1):
+        print('The {0} top used label is: {1}, with {2} occurrences'.format(i, element[0], element[1]))
+
+def networksFromLabels(network):
+    populate_with_metadata(network, {})
+    print('Finished populating')
+    network_dictionary = {}
+
+    for node in network.Nodes():
+        labels = getANodesLabels(network, node.GetId())
+        for label in labels:
+            if label == 'QCD':
+                if label not in network_dictionary:
+                    network_dictionary[label] = TNEANet.New()
+
+                network_dictionary[label].AddNode(node.GetId())
+
+    for net in network_dictionary.values():
+        for edge in network.Edges():
+            n1, n2 = edge.GetSrcNId(), edge.GetDstNId()
+            try:
+                net.AddEdge(n1, n2)
+            except:
+                pass
+
+    print('Finished creating nets')
+
+    return network_dictionary
+
+def plotClustCfOfAllNets(network_dictionary):
+    for label, net in network_dictionary.items():
+        snap.PlotClustCf(net, label, "{0} - Clustering coefficient".format(label))
+
+def plotAllNets(network_dictionary):
+    for label, net in network_dictionary.items():
+        snap.DrawGViz(net, snap.gvlCirco, "{0}.png".format(label))
+        showClusteringCoefficient(net)
+
+network = TNEANet.New()
+populate_with_metadata(network, {})
+
+net1 = networkWithinDate(network, '1992-01-01', '1993-01-01')
+net2 = networkWithinDate(network, '1992-01-01', '1994-01-01')
+net3 = networkWithinDate(network, '1992-01-01', '1995-01-01')
+net4 = networkWithinDate(network, '1992-01-01', '1996-01-01')
+net5 = networkWithinDate(network, '1992-01-01', '1997-01-01')
+net6 = networkWithinDate(network, '1992-01-01', '1998-01-01')
+net7 = networkWithinDate(network, '1992-01-01', '1999-01-01')
+net8 = networkWithinDate(network, '1992-01-01', '2000-01-01')
+
+nets = [net1, net2, net3, net4, net5, net6, net7, net8]
+
+for net in nets: 
+    m = 0
+    n = None
+    for node in net.Nodes():
+        if node.GetInDeg() > m:
+            m = node.GetInDeg()
+            n = node.GetId()
+            
+    print('Paper', n, 'Citations', m)
