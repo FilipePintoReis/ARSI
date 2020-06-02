@@ -472,26 +472,28 @@ def plotAllNets(network_dictionary):
         snap.DrawGViz(net, snap.gvlCirco, "{0}.png".format(label))
         showClusteringCoefficient(net)
 
-network = TNEANet.New()
-populate_with_metadata(network, {})
+def mostCitedPapersPerYear(network):
+    populate_with_metadata(network, {})
 
-net1 = networkWithinDate(network, '1992-01-01', '1993-01-01')
-net2 = networkWithinDate(network, '1992-01-01', '1994-01-01')
-net3 = networkWithinDate(network, '1992-01-01', '1995-01-01')
-net4 = networkWithinDate(network, '1992-01-01', '1996-01-01')
-net5 = networkWithinDate(network, '1992-01-01', '1997-01-01')
-net6 = networkWithinDate(network, '1992-01-01', '1998-01-01')
-net7 = networkWithinDate(network, '1992-01-01', '1999-01-01')
-net8 = networkWithinDate(network, '1992-01-01', '2000-01-01')
+    net1 = networkWithinDate(network, '1992-01-01', '1993-01-01')
+    net2 = networkWithinDate(network, '1992-01-01', '1994-01-01')
+    net3 = networkWithinDate(network, '1992-01-01', '1995-01-01')
+    net4 = networkWithinDate(network, '1992-01-01', '1996-01-01')
+    net5 = networkWithinDate(network, '1992-01-01', '1997-01-01')
+    net6 = networkWithinDate(network, '1992-01-01', '1998-01-01')
+    net7 = networkWithinDate(network, '1992-01-01', '1999-01-01')
+    net8 = networkWithinDate(network, '1992-01-01', '2000-01-01')
 
-nets = [net1, net2, net3, net4, net5, net6, net7, net8]
+    nets = [net1, net2, net3, net4, net5, net6, net7, net8]
 
-for net in nets: 
-    m = 0
-    n = None
-    for node in net.Nodes():
-        if node.GetInDeg() > m:
-            m = node.GetInDeg()
-            n = node.GetId()
-            
-    print('Paper', n, 'Citations', m)
+    for net in nets: 
+        m = 0
+        n = None
+        for node in net.Nodes():
+            if node.GetInDeg() > m:
+                m = node.GetInDeg()
+                n = node.GetId()
+                
+        print('Paper', n, 'Citations', m)
+
+
